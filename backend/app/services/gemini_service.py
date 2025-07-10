@@ -29,7 +29,7 @@ class GeminiService:
             self.is_initialized = False
             return False
             
-        if self.api_key in ['your_gemini_api_key', 'your-api-key-here']:
+        if self.api_key in ['AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc', 'AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc']:
             logger.warning("⚠️ Placeholder API key detected, Gemini service disabled")
             self.is_initialized = False
             return False
@@ -62,7 +62,7 @@ class GeminiService:
                 "model": None,
                 "message": "Service not initialized",
                 "api_key_configured": bool(self.api_key),
-                "api_key_status": "valid" if self.api_key and self.api_key not in ['your_gemini_api_key', 'your-api-key-here'] else "invalid",
+                "api_key_status": "valid" if self.api_key and self.api_key not in ['AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc', 'AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc'] else "invalid",
                 "quota_preserved": True
             }
             self._last_health_check = result
@@ -76,7 +76,7 @@ class GeminiService:
             
             result = {
                 "status": "ready",
-                "model": "gemini-2.0-flash-exp",
+                "model": "gemini-2.0-flash",
                 "message": "Initialized and ready (quota-preserving mode)",
                 "api_key_configured": True,
                 "api_key_status": "configured",
@@ -87,7 +87,7 @@ class GeminiService:
             logger.warning(f"⚠️ Gemini health check failed: {str(e)}")
             result = {
                 "status": "error",
-                "model": "gemini-2.0-flash-exp",
+                "model": "gemini-2.0-flash",
                 "message": f"Health check failed: {str(e)}",
                 "api_key_configured": True,
                 "api_key_status": "configured_but_error",
