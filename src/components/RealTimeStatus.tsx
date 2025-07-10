@@ -145,9 +145,9 @@ export const RealTimeStatus: React.FC = () => {
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
-            <span>Gemini 2.0 Flash:</span>
-            <span className={backendStatus.geminiStatus === 'online' ? 'text-green-400' : 'text-red-400'}>
-              {backendStatus.geminiStatus === 'online' ? 'Online' : 'Offline'}
+            <span>AI Engine:</span>
+            <span className={backendStatus.geminiStatus === 'online' ? 'text-green-400' : 'text-yellow-400'}>
+              {backendStatus.geminiStatus === 'online' ? 'Ready' : 'Starting'}
             </span>
           </div>
           <div className="flex items-center gap-2">

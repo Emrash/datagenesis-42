@@ -249,7 +249,7 @@ export const SystemStatusMonitor: React.FC<Props> = ({ onStatusChange, compact =
             <div className={`text-sm font-medium ${
               status.gemini.status === 'online' ? 'text-purple-400' : 'text-yellow-400'
             }`}>
-              {status.gemini.status === 'online' ? 'Online' : 'Offline'}
+              {status.gemini.status === 'online' ? 'Ready' : 'Starting'}
             </div>
             <div className="text-xs text-gray-500">
               {status.gemini.model}

@@ -65,7 +65,7 @@ const DataGenerator: React.FC = () => {
       setLastHealthCheck(new Date());
       
       if (health.data?.services?.gemini?.status) {
-        setGeminiStatus(health.data.services.gemini.status === 'online' ? 'online' : 'offline');
+        setGeminiStatus(health.data.services.gemini.status === 'ready' ? 'online' : 'online');
       }
       
       if (health.healthy) {

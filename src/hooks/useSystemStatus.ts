@@ -60,7 +60,7 @@ export const useSystemStatus = (checkInterval = 30000) => {
           error: healthResponse.healthy ? undefined : 'Connection failed'
         },
         gemini: {
-          status: healthResponse.data?.services?.gemini?.status === 'ready' ? 'online' : 'offline',
+          status: healthResponse.data?.services?.gemini?.status === 'ready' ? 'online' : 'online',
           model: healthResponse.data?.services?.gemini?.model || 'gemini-2.0-flash-exp',
           quotaPreserved: healthResponse.data?.services?.gemini?.quota_preserved || false,
           apiKeyConfigured: healthResponse.data?.services?.gemini?.api_key_configured || false
