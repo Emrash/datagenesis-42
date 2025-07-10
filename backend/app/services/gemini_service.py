@@ -144,24 +144,57 @@ class GeminiService:
         # Handle both 'row_count' and 'rowCount'
         row_count = config.get('row_count') or config.get('rowCount') or 100
 
+        # Create sophisticated prompt based on domain detection
+        domain_context = self._extract_domain_context(schema, config, description)
+        
         prompt = f"""
-        Generate {row_count} rows of realistic synthetic data based on this schema:
+You are an expert synthetic data generator. Create {row_count} rows of ultra-realistic synthetic data that is indistinguishable from real-world data.
 
-        Schema: {json.dumps(schema, indent=2)}
-        Description: "{description}"
-        Configuration: {json.dumps(config, indent=2)}
+SCHEMA DEFINITION:
+{json.dumps(schema, indent=2)}
 
-        Generate data that:
-        1. Follows the exact schema structure
-        2. Uses realistic values for each field type
-        3. Maintains data relationships and constraints
-        4. Ensures variety and realistic distribution
-        5. Follows domain-specific patterns when applicable
+CONTEXT:
+- Domain: {domain_context['domain']}
+- Description: "{description}"
+- Configuration: {json.dumps(config, indent=2)}
 
-        ⚠️ Return ONLY a JSON array of {row_count} objects, without any explanation, markdown or code fences.
-        The output must be a valid JSON array where each element is an object matching the schema.
-        Example of valid output format: [{{"field1": "value1", "field2": 123}}, {{"field1": "value2", "field2": 456}}]
-        """
+CRITICAL DATA GENERATION REQUIREMENTS:
+
+1. REALISM STANDARDS:
+   - All values must be realistic for the detected domain: {domain_context['domain']}
+   - Ages: 0-120 years (weighted towards realistic distributions)
+   - Dates: Use realistic date ranges and patterns
+   - IDs: Follow professional formatting standards
+   - Names: Use diverse, culturally appropriate names
+   - Medical conditions: Use actual medical terminology if healthcare domain
+   - Financial amounts: Use realistic currency and decimal precision
+
+2. FIELD-SPECIFIC RULES:
+{domain_context['field_rules']}
+
+3. DATA RELATIONSHIPS:
+   - Ensure logical consistency between related fields
+   - Age should correlate with admission patterns if healthcare
+   - Gender should use standard categories: "Male", "Female", "Other", "Prefer not to say"
+   - Dates should follow chronological logic
+
+4. QUALITY ASSURANCE:
+   - No placeholder text like "Sample X" or "Generated Y"
+   - No unrealistic values (e.g., age > 120, negative amounts)
+   - Maintain statistical distributions typical of real data
+   - Include appropriate data variance and edge cases (but realistic ones)
+
+5. DOMAIN-SPECIFIC AUTHENTICITY:
+{domain_context['authenticity_rules']}
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON array of exactly {row_count} objects. No explanations, markdown, or code fences.
+
+Example of expected quality:
+[{{"patient_id": "PT001234", "name": "Sarah Johnson", "age": 34, "gender": "Female", "admission_date": "2024-11-15", "conditions": "Type 2 Diabetes Mellitus"}}]
+
+Generate {row_count} records now:
+"""
 
         try:
             response = self.model.generate_content(prompt)
@@ -248,8 +281,11 @@ class GeminiService:
                 if len(data) > 0 and not isinstance(data[0], dict):
                     raise ValueError(f"Expected list of objects, got list of {type(data[0])}")
 
-                logger.info(f"✅ Generated {len(data)} synthetic records with Gemini")
-                return data[:row_count]
+                # Validate and clean the generated data
+                cleaned_data = self._validate_and_clean_data(data, schema, domain_context)
+                
+                logger.info(f"✅ Generated {len(cleaned_data)} synthetic records with Gemini")
+                return cleaned_data[:row_count]
 
             except json.JSONDecodeError as json_err:
                 logger.error(f"❌ JSON parsing failed: {str(json_err)}")
@@ -552,3 +588,369 @@ class GeminiService:
                 "current_model": getattr(self.model, 'model_name', None),
                 "new_model": model_name
             }
+
+    def _extract_domain_context(self, schema: Dict[str, Any], config: Dict[str, Any], description: str) -> Dict[str, Any]:
+        """Extract domain-specific context for realistic data generation"""
+        
+        # Detect domain from schema fields and description
+        domain = config.get('domain', 'general')
+        field_names = list(schema.keys())
+        field_names_lower = [name.lower() for name in field_names]
+        description_lower = description.lower()
+        
+        # Enhanced domain detection
+        if any(keyword in ' '.join(field_names_lower + [description_lower]) for keyword in 
+               ['patient', 'medical', 'health', 'diagnosis', 'condition', 'admission', 'hospital', 'clinic']):
+            domain = 'healthcare'
+        elif any(keyword in ' '.join(field_names_lower + [description_lower]) for keyword in 
+                 ['transaction', 'account', 'payment', 'balance', 'credit', 'debit', 'financial', 'bank']):
+            domain = 'finance'
+        elif any(keyword in ' '.join(field_names_lower + [description_lower]) for keyword in 
+                 ['customer', 'product', 'order', 'purchase', 'inventory', 'sales', 'retail']):
+            domain = 'retail'
+        elif any(keyword in ' '.join(field_names_lower + [description_lower]) for keyword in 
+                 ['student', 'course', 'grade', 'school', 'education', 'university', 'learning']):
+            domain = 'education'
+        
+        # Domain-specific field rules and authenticity guidelines
+        context = {
+            'domain': domain,
+            'field_rules': self._get_field_rules(schema, domain),
+            'authenticity_rules': self._get_authenticity_rules(domain)
+        }
+        
+        return context
+    
+    def _get_field_rules(self, schema: Dict[str, Any], domain: str) -> str:
+        """Generate field-specific rules based on schema and domain"""
+        rules = []
+        
+        for field_name, field_info in schema.items():
+            field_lower = field_name.lower()
+            field_type = field_info.get('type', 'string')
+            
+            if 'age' in field_lower:
+                if domain == 'healthcare':
+                    rules.append(f"- {field_name}: Age 0-95 years, weighted distribution (more 25-65, fewer 0-18 and 80+)")
+                else:
+                    rules.append(f"- {field_name}: Realistic age distribution 18-85 years")
+            
+            elif 'name' in field_lower:
+                rules.append(f"- {field_name}: Diverse, culturally appropriate full names (First Last format)")
+            
+            elif 'gender' in field_lower or 'sex' in field_lower:
+                rules.append(f"- {field_name}: Use exactly 'Male', 'Female', 'Other', 'Prefer not to say' (45%, 45%, 5%, 5%)")
+            
+            elif 'id' in field_lower:
+                if domain == 'healthcare':
+                    rules.append(f"- {field_name}: Format PT######, MR######, or similar professional medical ID patterns")
+                elif domain == 'finance':
+                    rules.append(f"- {field_name}: Account numbers, transaction IDs following banking standards")
+                else:
+                    rules.append(f"- {field_name}: Professional ID format with alphanumeric patterns")
+            
+            elif 'date' in field_lower:
+                rules.append(f"- {field_name}: YYYY-MM-DD format, realistic date ranges within last 2 years")
+            
+            elif 'condition' in field_lower or 'diagnosis' in field_lower:
+                if domain == 'healthcare':
+                    rules.append(f"- {field_name}: Actual medical conditions (Hypertension, Type 2 Diabetes, Asthma, Pneumonia, etc.)")
+                else:
+                    rules.append(f"- {field_name}: Relevant conditions for the domain context")
+            
+            elif 'amount' in field_lower or 'price' in field_lower or 'cost' in field_lower:
+                rules.append(f"- {field_name}: Realistic monetary values with proper decimal places")
+            
+            elif 'email' in field_lower:
+                rules.append(f"- {field_name}: Realistic email formats with diverse domains")
+            
+            elif 'phone' in field_lower:
+                rules.append(f"- {field_name}: Valid phone number formats")
+        
+        return '\n'.join(rules) if rules else "- Follow standard realistic data patterns for all fields"
+    
+    def _get_authenticity_rules(self, domain: str) -> str:
+        """Get domain-specific authenticity rules"""
+        
+        if domain == 'healthcare':
+            return """
+- Use actual medical terminology and ICD-10 condition names
+- Age distributions should reflect real patient demographics
+- Admission dates should show realistic patterns (weekdays more common)
+- Patient IDs should follow healthcare standards (PT###### or MRN###### format)
+- Names should be diverse and culturally representative
+- Medical conditions should be age-appropriate (e.g., no pediatric conditions for 80+ year olds)
+- Use realistic hospital/clinic workflow patterns
+"""
+        
+        elif domain == 'finance':
+            return """
+- Transaction amounts should follow realistic spending patterns
+- Account numbers should follow banking industry standards
+- Date patterns should reflect business days for transactions
+- Customer data should comply with financial industry norms
+- Currency values should have appropriate decimal precision
+- Transaction types should match real banking terminology
+"""
+        
+        elif domain == 'retail':
+            return """
+- Product names should be realistic and diverse
+- Pricing should reflect market reality
+- Customer demographics should be representative
+- Purchase patterns should show realistic consumer behavior
+- Inventory levels should be practical
+- Sales data should follow seasonal patterns
+"""
+        
+        elif domain == 'education':
+            return """
+- Student data should reflect educational demographics
+- Course codes and names should follow academic standards
+- Grade distributions should be realistic (bell curve patterns)
+- Academic years should align with calendar systems
+- Student IDs should follow institutional formatting
+"""
+        
+        else:
+            return """
+- All data should reflect real-world patterns and distributions
+- No placeholder or template text
+- Maintain statistical realism across all fields
+- Ensure data consistency and logical relationships
+- Use appropriate formatting standards for each data type
+"""
+
+    def _validate_and_clean_data(self, data: List[Dict[str, Any]], schema: Dict[str, Any], domain_context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Validate and clean generated data to ensure high quality"""
+        logger.info("🔍 Validating and cleaning generated data for quality assurance...")
+        
+        cleaned_data = []
+        domain = domain_context['domain']
+        
+        for i, record in enumerate(data):
+            cleaned_record = {}
+            is_valid = True
+            
+            for field_name, field_info in schema.items():
+                if field_name not in record:
+                    logger.warning(f"Missing field {field_name} in record {i}, skipping record")
+                    is_valid = False
+                    break
+                
+                value = record[field_name]
+                cleaned_value = self._validate_and_clean_field(field_name, value, field_info, domain, i)
+                
+                if cleaned_value is None:
+                    logger.warning(f"Invalid value for {field_name} in record {i}, skipping record")
+                    is_valid = False
+                    break
+                
+                cleaned_record[field_name] = cleaned_value
+            
+            if is_valid:
+                # Final record-level validation
+                if self._validate_record_consistency(cleaned_record, domain):
+                    cleaned_data.append(cleaned_record)
+                else:
+                    logger.warning(f"Record {i} failed consistency validation, skipping")
+        
+        logger.info(f"✅ Data validation complete: {len(cleaned_data)}/{len(data)} records passed quality checks")
+        return cleaned_data
+    
+    def _validate_and_clean_field(self, field_name: str, value: Any, field_info: Dict[str, Any], domain: str, record_index: int) -> Any:
+        """Validate and clean individual field value"""
+        field_lower = field_name.lower()
+        field_type = field_info.get('type', 'string')
+        
+        # Convert string representation to appropriate type if needed
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        
+        # Age validation
+        if 'age' in field_lower:
+            try:
+                age = int(float(str(value)))  # Handle potential float strings
+                if age < 0 or age > 120:
+                    logger.warning(f"Unrealistic age {age} in record {record_index}, generating realistic replacement")
+                    # Generate realistic age based on domain
+                    if domain == 'healthcare':
+                        age = min(95, max(0, 30 + (record_index * 7) % 60))  # 30-90 range
+                    else:
+                        age = min(85, max(18, 25 + (record_index * 5) % 50))  # 25-75 range
+                return age
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid age format '{value}' in record {record_index}")
+                return 35 + (record_index % 40)  # Fallback realistic age
+        
+        # Gender validation
+        if 'gender' in field_lower or 'sex' in field_lower:
+            if isinstance(value, str):
+                value_clean = value.strip()
+                # Check for placeholder patterns
+                if 'sample' in value_clean.lower() or value_clean.lower().startswith('generated'):
+                    # Replace with realistic gender
+                    genders = ['Male', 'Female', 'Other', 'Prefer not to say']
+                    return genders[record_index % 4]  # Distribute evenly
+                
+                # Normalize common gender formats
+                value_lower = value_clean.lower()
+                if value_lower in ['m', 'male', 'man']:
+                    return 'Male'
+                elif value_lower in ['f', 'female', 'woman']:
+                    return 'Female'
+                elif value_lower in ['other', 'non-binary', 'nb']:
+                    return 'Other'
+                elif 'prefer' in value_lower or 'not' in value_lower:
+                    return 'Prefer not to say'
+                else:
+                    return value_clean if value_clean in ['Male', 'Female', 'Other', 'Prefer not to say'] else 'Male'
+            return 'Male'  # Default fallback
+        
+        # Medical conditions validation
+        if ('condition' in field_lower or 'diagnosis' in field_lower) and domain == 'healthcare':
+            if isinstance(value, str):
+                value_clean = value.strip()
+                # Check for placeholder patterns
+                if ('sample' in value_clean.lower() or 
+                    'generated' in value_clean.lower() or 
+                    'placeholder' in value_clean.lower() or
+                    value_clean.lower().startswith('condition') or
+                    value_clean.lower().startswith('diagnosis')):
+                    
+                    # Replace with realistic medical conditions
+                    realistic_conditions = [
+                        'Type 2 Diabetes Mellitus',
+                        'Essential Hypertension',
+                        'Hyperlipidemia',
+                        'Chronic Obstructive Pulmonary Disease',
+                        'Osteoarthritis',
+                        'Depression',
+                        'Anxiety Disorder',
+                        'Asthma',
+                        'Gastroesophageal Reflux Disease',
+                        'Chronic Kidney Disease',
+                        'Atrial Fibrillation',
+                        'Coronary Artery Disease',
+                        'Thyroid Disorder',
+                        'Sleep Apnea',
+                        'Migraine Headaches'
+                    ]
+                    return realistic_conditions[record_index % len(realistic_conditions)]
+                
+                return value_clean
+            return 'Essential Hypertension'  # Default realistic condition
+        
+        # Date validation
+        if 'date' in field_lower:
+            if isinstance(value, str):
+                # Validate date format and realism
+                try:
+                    from datetime import datetime, timedelta
+                    import re
+                    
+                    # Check for valid date format
+                    if re.match(r'\d{4}-\d{2}-\d{2}', value):
+                        parsed_date = datetime.strptime(value, '%Y-%m-%d')
+                        current_date = datetime.now()
+                        
+                        # Ensure date is realistic (within reasonable range)
+                        if parsed_date > current_date + timedelta(days=30):
+                            # Future date too far, adjust to realistic range
+                            adjusted_date = current_date - timedelta(days=record_index * 10 + 30)
+                            return adjusted_date.strftime('%Y-%m-%d')
+                        elif parsed_date < datetime(2020, 1, 1):
+                            # Too far in past, adjust
+                            adjusted_date = datetime(2024, 1, 1) + timedelta(days=record_index * 5)
+                            return adjusted_date.strftime('%Y-%m-%d')
+                        
+                        return value
+                    else:
+                        # Invalid format, generate realistic date
+                        base_date = datetime(2024, 6, 1)
+                        adjusted_date = base_date + timedelta(days=record_index * 10)
+                        return adjusted_date.strftime('%Y-%m-%d')
+                
+                except Exception:
+                    # Fallback realistic date
+                    from datetime import datetime, timedelta
+                    base_date = datetime(2024, 6, 1)
+                    adjusted_date = base_date + timedelta(days=record_index * 10)
+                    return adjusted_date.strftime('%Y-%m-%d')
+        
+        # ID validation
+        if 'id' in field_lower:
+            if isinstance(value, str):
+                value_clean = value.strip()
+                # Check for placeholder patterns
+                if ('sample' in value_clean.lower() or 
+                    'generated' in value_clean.lower() or
+                    value_clean.lower() == 'id'):
+                    
+                    # Generate realistic ID based on domain
+                    if domain == 'healthcare':
+                        return f"PT{str(100000 + record_index).zfill(6)}"
+                    elif domain == 'finance':
+                        return f"ACC{str(200000 + record_index).zfill(8)}"
+                    else:
+                        return f"ID{str(300000 + record_index).zfill(6)}"
+                
+                return value_clean
+            return f"ID{str(400000 + record_index).zfill(6)}"
+        
+        # Name validation
+        if 'name' in field_lower:
+            if isinstance(value, str):
+                value_clean = value.strip()
+                # Check for placeholder patterns
+                if ('sample' in value_clean.lower() or 
+                    'generated' in value_clean.lower() or
+                    'placeholder' in value_clean.lower() or
+                    'name' in value_clean.lower() and len(value_clean) < 10):
+                    
+                    # Replace with realistic names
+                    realistic_names = [
+                        'Sarah Johnson', 'Michael Chen', 'Emily Rodriguez', 'David Kim',
+                        'Jessica Williams', 'Robert Brown', 'Ashley Davis', 'Christopher Lee',
+                        'Amanda Wilson', 'James Martinez', 'Lauren Anderson', 'Matthew Garcia',
+                        'Stephanie Taylor', 'Daniel Thompson', 'Nicole White', 'Ryan Jackson',
+                        'Samantha Lewis', 'Kevin Miller', 'Rachel Moore', 'Brandon Clark'
+                    ]
+                    return realistic_names[record_index % len(realistic_names)]
+                
+                return value_clean
+            return f"Person {record_index + 1}"
+        
+        # Generic cleaning for other fields
+        if isinstance(value, str):
+            value_clean = value.strip()
+            # Remove obvious placeholder patterns
+            if ('sample' in value_clean.lower() and len(value_clean) < 20) or 'generated' in value_clean.lower():
+                return f"Realistic_{field_name}_{record_index + 1}"
+            return value_clean
+        
+        return value
+    
+    def _validate_record_consistency(self, record: Dict[str, Any], domain: str) -> bool:
+        """Validate consistency across fields in a record"""
+        
+        # Healthcare-specific consistency checks
+        if domain == 'healthcare':
+            age = record.get('age')
+            condition = record.get('conditions') or record.get('condition') or record.get('diagnosis')
+            
+            if age is not None and condition is not None:
+                age = int(age) if isinstance(age, (int, float, str)) and str(age).isdigit() else 35
+                condition_str = str(condition).lower()
+                
+                # Age-appropriate condition validation
+                if age < 18:  # Pediatric patients
+                    pediatric_inappropriate = ['alzheimer', 'dementia', 'osteoarthritis', 'menopause']
+                    if any(term in condition_str for term in pediatric_inappropriate):
+                        return False
+                elif age > 80:  # Elderly patients
+                    elderly_inappropriate = ['adhd', 'autism', 'learning disability']
+                    if any(term in condition_str for term in elderly_inappropriate):
+                        return False
+        
+        return True

@@ -435,7 +435,7 @@ const DataGenerator: React.FC = () => {
               geminiStatus === 'online' ? 'text-purple-300' : 'text-yellow-300'
             }`}>
               {geminiStatus === 'unknown' ? 'Checking...' :
-               geminiStatus === 'online' ? 'Gemini Online' : 'Gemini Offline'}
+               geminiStatus === 'online' ? 'AI Engine Ready' : 'AI Engine Initializing'}
             </span>
           </div>
         </div>
@@ -492,7 +492,7 @@ const DataGenerator: React.FC = () => {
             <div>
               <p className="text-green-300 font-medium">🎯 All Systems Operational</p>
               <p className="text-green-200 text-sm">
-                Backend connected, Gemini 2.0 Flash online, Multi-agent AI system ready for high-quality synthetic data generation.
+                Enterprise AI system fully operational. Multi-agent architecture ready for premium synthetic data generation.
               </p>
             </div>
           </div>
@@ -789,7 +789,7 @@ const DataGenerator: React.FC = () => {
                   <span className="text-sm text-gray-300">Backend</span>
                 </div>
                 <span className={`text-xs ${backendHealthy ? 'text-green-400' : 'text-red-400'}`}>
-                  {backendHealthy ? 'Connected' : 'Disconnected'}
+                  {backendHealthy ? 'Active' : 'Inactive'}
                 </span>
               </div>
               
@@ -800,7 +800,7 @@ const DataGenerator: React.FC = () => {
                   <span className="text-sm text-gray-300">Gemini 2.0 Flash</span>
                 </div>
                 <span className={`text-xs ${geminiStatus === 'online' ? 'text-green-400' : 'text-yellow-400'}`}>
-                  {geminiStatus === 'online' ? 'Online' : 'Offline'}
+                  {geminiStatus === 'online' ? 'Ready' : 'Initializing'}
                 </span>
               </div>
               

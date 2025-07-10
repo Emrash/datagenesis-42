@@ -114,7 +114,7 @@ export const useSystemStatus = (checkInterval = 30000) => {
       } else {
         newStatus.overall = {
           status: 'unhealthy',
-          message: 'Backend connection failed - Limited functionality'
+          message: 'AI system unavailable - Please check connection'
         };
       }
 
