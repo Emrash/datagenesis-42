@@ -29,10 +29,6 @@ class GeminiService:
             self.is_initialized = False
             return False
             
-        if self.api_key in ['AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc', 'AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc']:
-            logger.warning("⚠️ Placeholder API key detected, Gemini service disabled")
-            self.is_initialized = False
-            return False
         
         try:
             genai.configure(api_key=self.api_key)
@@ -56,18 +52,6 @@ class GeminiService:
             logger.info("🔄 Returning cached health status to save quota")
             return self._last_health_check
         
-        if not self.is_initialized:
-            result = {
-                "status": "error",
-                "model": None,
-                "message": "Service not initialized",
-                "api_key_configured": bool(self.api_key),
-                "api_key_status": "valid" if self.api_key and self.api_key not in ['AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc', 'AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc'] else "invalid",
-                "quota_preserved": True
-            }
-            self._last_health_check = result
-            self._last_health_check_time = current_time
-            return result
         
         # Only perform actual API call if cache is expired
         try:
